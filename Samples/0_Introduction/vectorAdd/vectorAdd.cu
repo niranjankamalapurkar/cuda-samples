@@ -34,6 +34,7 @@
  */
 
 #include <stdio.h>
+#include <chrono>
 
 // For the CUDA runtime routines (prefixed with "cuda_")
 #include <cuda_runtime.h>
@@ -53,6 +54,12 @@ __global__ void vectorAdd(const float *A, const float *B, float *C, int numEleme
     }
 }
 
+void vectorAddCPU(float *a, float *b, float *c, int n) {
+    for (int i = 0; i < n; i++) {
+        c[i] = a[i] + b[i];
+    }
+}
+
 /**
  * Host main routine
  */
@@ -62,7 +69,7 @@ int main(void)
     cudaError_t err = cudaSuccess;
 
     // Print the vector length to be used, and compute its size
-    int    numElements = 50000;
+    int    numElements = 100000000;
     size_t size        = numElements * sizeof(float);
     printf("[Vector addition of %d elements]\n", numElements);
 
@@ -86,6 +93,12 @@ int main(void)
         h_A[i] = rand() / (float)RAND_MAX;
         h_B[i] = rand() / (float)RAND_MAX;
     }
+
+    auto startCpu = std::chrono::high_resolution_clock::now();
+    vectorAddCPU(h_A, h_B, h_C, numElements);
+    auto endCpu = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<float, std::milli> duration = endCpu - startCpu;
+    printf("CPU time: %.3f ms\n", duration.count());
 
     // Allocate the device input vector A
     float *d_A = NULL;
@@ -133,11 +146,31 @@ int main(void)
     }
 
     // Launch the Vector Add CUDA Kernel
-    int threadsPerBlock = 256;
+    int minBlocksPerGrid;
+    int threadsPerBlock;
+    cudaOccupancyMaxPotentialBlockSize(
+        &minBlocksPerGrid, 
+        &threadsPerBlock, 
+        (void*)vectorAdd, // Pointer to your kernel function
+        0,                // Dynamic shared memory usage (0 if not used)
+        0                 // Block size limit (0 means use hardware max of 1024)
+    );
+    // int threadsPerBlock = 256;
     int blocksPerGrid   = (numElements + threadsPerBlock - 1) / threadsPerBlock;
+    cudaEvent_t start, stop;
+    cudaEventCreate(&start);
+    cudaEventCreate(&stop);
+
     printf("CUDA kernel launch with %d blocks of %d threads\n", blocksPerGrid, threadsPerBlock);
+    cudaEventRecord(start);
     vectorAdd<<<blocksPerGrid, threadsPerBlock>>>(d_A, d_B, d_C, numElements);
     err = cudaGetLastError();
+    cudaEventRecord(stop);
+
+    cudaEventSynchronize(stop);
+    float milliseconds = 0;
+    cudaEventElapsedTime(&milliseconds, start, stop);
+    printf("GPU time: %.3f ms\n", milliseconds);
 
     if (err != cudaSuccess) {
         fprintf(stderr, "Failed to launch vectorAdd kernel (error code %s)!\n", cudaGetErrorString(err));

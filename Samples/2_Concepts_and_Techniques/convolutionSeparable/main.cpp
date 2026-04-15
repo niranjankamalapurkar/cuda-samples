@@ -36,6 +36,7 @@
 // Utilities and system includes
 #include <helper_cuda.h>
 #include <helper_functions.h>
+#include <chrono>
 
 #include "convolutionSeparable_common.h"
 
@@ -59,8 +60,8 @@ int main(int argc, char **argv)
 
     float *d_Input, *d_Output, *d_Buffer;
 
-    const int imageW     = 3072;
-    const int imageH     = 3072;
+    const int imageW     = 8192;
+    const int imageH     = 8192;
     const int iterations = 16;
 
     StopWatchInterface *hTimer = NULL;
@@ -89,12 +90,16 @@ int main(int argc, char **argv)
     }
 
     printf("Allocating and initializing CUDA arrays...\n");
+    auto startCudaMemOp = std::chrono::high_resolution_clock::now();
     checkCudaErrors(cudaMalloc((void **)&d_Input, imageW * imageH * sizeof(float)));
     checkCudaErrors(cudaMalloc((void **)&d_Output, imageW * imageH * sizeof(float)));
     checkCudaErrors(cudaMalloc((void **)&d_Buffer, imageW * imageH * sizeof(float)));
 
     setConvolutionKernel(h_Kernel);
     checkCudaErrors(cudaMemcpy(d_Input, h_Input, imageW * imageH * sizeof(float), cudaMemcpyHostToDevice));
+    auto endCudaMemOp = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double> elapsedCudaMemOp = endCudaMemOp - startCudaMemOp;
+    printf("Memory operation time = %.6f s\n", elapsedCudaMemOp.count());
 
     printf("Running GPU convolution (%u identical iterations)...\n\n", iterations);
 
@@ -126,12 +131,16 @@ int main(int argc, char **argv)
     checkCudaErrors(cudaMemcpy(h_OutputGPU, d_Output, imageW * imageH * sizeof(float), cudaMemcpyDeviceToHost));
 
     printf("Checking the results...\n");
-    printf(" ...running convolutionRowCPU()\n");
+    //printf(" ...running convolutionRowCPU()\n");
+    auto startCPU = std::chrono::high_resolution_clock::now();
     convolutionRowCPU(h_Buffer, h_Input, h_Kernel, imageW, imageH, KERNEL_RADIUS);
 
-    printf(" ...running convolutionColumnCPU()\n");
+    //printf(" ...running convolutionColumnCPU()\n");
     convolutionColumnCPU(h_OutputCPU, h_Buffer, h_Kernel, imageW, imageH, KERNEL_RADIUS);
-
+    auto endCPU = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double> elapsed = endCPU - startCPU;
+    printf("CPU Time = %.6f s\n", elapsed.count());
+    
     printf(" ...comparing the results\n");
     double sum = 0, delta = 0;
 
