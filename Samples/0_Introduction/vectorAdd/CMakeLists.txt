@@ -8,7 +8,7 @@ find_package(CUDAToolkit REQUIRED)
 
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
-set(CMAKE_CUDA_ARCHITECTURES 75 80 86 87 89 90 100 110 120)
+set(CMAKE_CUDA_ARCHITECTURES 89)
 set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -Wno-deprecated-gpu-targets")
 if(ENABLE_CUDA_DEBUG)
     set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -G")  # enable cuda-gdb (may significantly affect performance on some targets)
@@ -22,6 +22,7 @@ include_directories(../../../Common)
 # Source file
 # Add target for vectorAdd
 add_executable(vectorAdd vectorAdd.cu)
+add_executable(vectorAdd_warpdive vectorAdd_warpdive.cu)
 
 target_compile_options(vectorAdd PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:--extended-lambda>)
 
