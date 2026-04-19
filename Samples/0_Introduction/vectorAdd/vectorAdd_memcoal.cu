@@ -45,9 +45,9 @@
  * Computes the vector addition of A and B into C. The 3 vectors have the same
  * number of elements numElements.
  */
-__global__ void vectorAdd(const float *A, const float *B, float *C, int numElements)
+__global__ void vectorAdd(const float *A, const float *B, float *C, int numElements, int stride)
 {
-    int i = blockDim.x * blockIdx.x + threadIdx.x;
+    int i = (blockDim.x * blockIdx.x + threadIdx.x) * stride; // this multiplication by 2 introduces memory coalescing.
 
     if (i < numElements && i % 2 == 0) {
         C[i] = A[i] + B[i] + 0.0f;
@@ -72,7 +72,8 @@ int main(void)
 
     // Print the vector length to be used, and compute its size
     int    numElements = 1000000;
-    size_t size        = numElements * sizeof(float);
+    int    stride      = 32;                                     // For memory coalescing experiment
+    size_t size        = numElements * sizeof(float) * stride;
     printf("[Vector addition of %d elements]\n", numElements);
 
     // Allocate the host input vector A
@@ -165,7 +166,7 @@ int main(void)
 
     printf("CUDA kernel launch with %d blocks of %d threads\n", blocksPerGrid, threadsPerBlock);
     cudaEventRecord(start);
-    vectorAdd<<<blocksPerGrid, threadsPerBlock>>>(d_A, d_B, d_C, numElements);
+    vectorAdd<<<blocksPerGrid, threadsPerBlock>>>(d_A, d_B, d_C, numElements, stride);
     err = cudaGetLastError();
     cudaEventRecord(stop);
 

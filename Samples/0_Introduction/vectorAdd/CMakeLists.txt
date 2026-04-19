@@ -23,6 +23,7 @@ include_directories(../../../Common)
 # Add target for vectorAdd
 add_executable(vectorAdd vectorAdd.cu)
 add_executable(vectorAdd_warpdive vectorAdd_warpdive.cu)
+add_executable(vectorAdd_memcoal vectorAdd_memcoal.cu)
 
 target_compile_options(vectorAdd PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:--extended-lambda>)
 
